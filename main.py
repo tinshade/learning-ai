@@ -1,9 +1,9 @@
+import glob
 import os
 
+import pypdf
 from langchain_chroma import Chroma
-from langchain_community.document_loaders import PyPDFDirectoryLoader
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.llms import Ollama
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -31,8 +31,16 @@ class ChatWDocs:
         """
 
     def load_documents(self, file_path: str):
-        document_loader = PyPDFDirectoryLoader(file_path)
-        return document_loader.load()
+        documents = []
+        for pdf_path in glob.glob(os.path.join(file_path, "**/*.pdf"), recursive=True):
+            with open(pdf_path, "rb") as f:
+                reader = pypdf.PdfReader(f)
+                for page_num, page in enumerate(reader.pages):
+                    documents.append(Document(
+                        page_content=page.extract_text() or "",
+                        metadata={"source": pdf_path, "page": page_num},
+                    ))
+        return documents
 
     def split_documents(self, documents: list[Document]):
         text_splitter = RecursiveCharacterTextSplitter(
@@ -95,7 +103,7 @@ class ChatWDocs:
     def invoke_llm(self, question: str):
         context = self.query_rag(question)
         prompt = self.prompt_template.format(context=context, question=question)
-        model = Ollama(model=self.local_model_name)
+        model = OllamaLLM(model=self.local_model_name)
         response_text = model.invoke(prompt)
         return response_text
 
