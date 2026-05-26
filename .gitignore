@@ -1,0 +1,6 @@
+.env
+env/
+*.log
+memory/chroma/*
+.claude
+.vscode
